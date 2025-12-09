@@ -20,3 +20,5 @@ jobs:
     with:
       playbook_file: bootstrap/playbooks/create_administrative_users.yml
       additional_args: "-var 'ansible_user_public_key=${{ secrets.ANSIBLE_USER_PUBLIC_KEY }}'"
+    secrets:
+      ANSIBLE_USER_PUBLIC_KEY: ${{ secrets.ANSIBLE_USER_PUBLIC_KEY }}
