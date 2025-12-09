@@ -1,0 +1,41 @@
+name: Create administrative users for Ansible
+
+concurrency:
+  group: run-ansible-playbook-${{ github.ref }}
+  cancel-in-progress: true
+
+run-name: Run Ansible Playbook - ${{ inputs.playbook_file }}
+
+on:
+  workflow_call:
+    secrets:
+      SSH_PRIVATE_KEY:
+        required: true
+      SERVER_HOSTS:
+        required: true
+      SSH_USER:
+        required: true
+    inputs:
+      playbook_file:
+        description: The Ansible playbook file to run
+        required: true
+        type: string
+      additional_args:
+        description: Additional arguments for the workflow
+        required: false
+        type: string
+jobs:
+  run-ansible:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Ansible
+        uses: ./.github/actions/setup_ansible
+        with:
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          server_hosts: ${{ secrets.SERVER_HOSTS }}
+          ssh_user: ${{ secrets.SSH_USER }}
+      - name: Run Ansible playbook
+        run: |
+          ansible-playbook -i inventory.ini '${{ inputs.playbook_file }}' ${{ inputs.additional_args }}

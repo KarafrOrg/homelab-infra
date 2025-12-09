@@ -1,0 +1,22 @@
+name: Creates administrative users for Ansible
+
+concurrency:
+  group: create-administrative-users-for-ansible-${{ github.ref }}
+  cancel-in-progress: true
+
+run-name: Create administrative users for Ansible
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - bootstrap/playbooks/create_administrative_users.yml
+  workflow_dispatch:
+
+jobs:
+  create-admin-users:
+    uses: ./.github/workflows/run_ansible_playbook.yaml@main
+    with:
+      playbook_file: bootstrap/playbooks/create_administrative_users.yml
+      additional_args: "-var 'ansible_user_public_key=${{ secrets.ANSIBLE_USER_PUBLIC_KEY }}'"

@@ -1,0 +1,52 @@
+name: Setup ansible
+description: Sets up ansible for further use in the workflow.
+author: karafra@karafra.net
+
+inputs:
+  ssh_private_key:
+    description: SSH private key for accessing the target servers.
+    required: true
+  server_hosts:
+    description: Comma-separated hostnames or IPs of the target servers.
+    required: true
+  ssh_user:
+    description: SSH user for accessing the target servers.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Ansible
+      shell: bash
+      # language=bash
+      run: |
+        sudo apt update
+        sudo apt install -y ansible sshpass
+
+    - name: Prepare SSH key
+      shell: bash
+      # language=bash
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ inputs.ssh_private_key }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+
+        # Add each host to known_hosts automatically
+        IFS=',' read -ra HOSTS <<< "${{ inputs.server_hosts }}"
+        for host in "${HOSTS[@]}"; do
+          ssh-keyscan -H "$host" >> ~/.ssh/known_hosts 2>/dev/null || true
+        done
+
+    - name: Create dynamic inventory
+      shell: bash
+      # language=bash
+      run: |
+        echo "[servers]" > inventory.ini
+
+        IFS=',' read -ra HOSTS <<< "${{ inputs.server_hosts }}"
+        for host in "${HOSTS[@]}"; do
+          echo "$host ansible_user=${{ inputs.ssh_user }} ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory.ini
+        done
+
+        echo "Generated inventory:"
+        cat inventory.ini
