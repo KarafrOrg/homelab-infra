@@ -2,7 +2,6 @@ name: Run ansible playbook
 
 concurrency:
   group: run-ansible-playbook-${{ github.ref }}
-  cancel-in-progress: true
 
 run-name: Run Ansible Playbook - ${{ inputs.playbook_file }}
 
