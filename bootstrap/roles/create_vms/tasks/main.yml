@@ -222,7 +222,7 @@
   debug:
     msg: |
       {% if item.rc | default(0) == 0 %}
-      ✓ VM created successfully
+      VM created successfully
       {% else %}
       ✗ VM creation failed (return code: {{ item.rc | default(-1) }})
       {% endif %}
@@ -245,13 +245,13 @@
   debug:
     msg: |
       {% if item.rc == 0 %}
-      ✓ VM started successfully
+      VM started successfully
       {% else %}
       ✗ VM startup failed (return code: {{ item.rc }})
       {% endif %}
   loop: "{{ vm_start.results }}"
 
-- name: "Waiting for VM {{ item }} to get IP address"
+- name: "Waiting for VMs to get IP addresses ({{ loop.index }}/{{ vms_per_host_safe }})"
   shell: |
     RESULT=$(virsh domifaddr {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }} 2>/dev/null | grep -oP '[\d.]+(\.[\d.]+){3}' | head -1)
     if [ -z "$RESULT" ]; then
@@ -273,7 +273,7 @@
       VM IP Addresses:
       {% for result in vm_ip_result.results %}
       {% if result.stdout %}
-      ✓ VM {{ loop.index }}: {{ result.stdout }}
+      VM {{ loop.index }}: {{ result.stdout }}
       {% else %}
       ✗ VM {{ loop.index }}: No IP assigned
       {% endif %}
