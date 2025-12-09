@@ -32,6 +32,17 @@
       Memory per VM: {{ vm_memory_per_instance }} MB
       CPUs per VM: {{ vm_cpus_per_instance }}
 
+- name: Update APT package cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: yes
+
+- name: Fix broken apt dependencies
+  shell: apt-get --fix-broken --fix-missing -y install
+  become: yes
+  ignore_errors: yes
+
 - name: Ensure libvirt is installed
   package:
     name: "{{ item }}"
@@ -45,6 +56,10 @@
     - bridge-utils
     - virtinst
     - virt-manager
+  retries: 3
+  delay: 5
+  register: libvirt_install
+  until: libvirt_install is succeeded
 
 - name: Ensure libvirtd is started and enabled
   service:
@@ -71,7 +86,7 @@
     src: cloud-init-user-data.j2
     dest: "/tmp/vm_configs/user-data-{{ item }}"
     mode: '0644'
-  loop: "{{ range(1, vms_per_host + 1) | list }}"
+  loop: "{{ range(1, vms_per_host_safe + 1) | list }}"
 
 - name: Create VMs with virt-install
   shell: |
@@ -90,14 +105,14 @@
   become: yes
   become_user: root
   register: vm_creation
-  loop: "{{ range(1, vms_per_host + 1) | list }}"
+  loop: "{{ range(1, vms_per_host_safe + 1) | list }}"
   ignore_errors: yes
 
 - name: Start VMs
   shell: |
     virsh start {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}
   become: yes
-  loop: "{{ range(1, vms_per_host + 1) | list }}"
+  loop: "{{ range(1, vms_per_host_safe + 1) | list }}"
   ignore_errors: yes
 
 - name: Wait for VMs to get IP addresses
@@ -108,7 +123,7 @@
   until: vm_ip_result.stdout != ""
   retries: 30
   delay: 5
-  loop: "{{ range(1, vms_per_host + 1) | list }}"
+  loop: "{{ range(1, vms_per_host_safe + 1) | list }}"
 
 - name: Collect VM IP addresses
   set_fact:
@@ -122,7 +137,7 @@
     ansible_host: "{{ item.1 }}"
     ansible_user: ubuntu
     groups: k3s_cluster
-  loop: "{{ range(1, vms_per_host + 1) | list | zip(vm_ips | default([])) | list }}"
+  loop: "{{ range(1, vms_per_host_safe + 1) | list | zip(vm_ips | default([])) | list }}"
 
 - name: Wait for SSH connectivity on VMs
   wait_for:
