@@ -2,15 +2,14 @@
 hostname: {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}
 fqdn: {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}.local
 
-# Network configuration - enable DHCP
+# Simple network configuration - ensure DHCP on eth0
 network:
   version: 2
+  renderer: networkd
   ethernets:
     eth0:
       dhcp4: true
-      dhcp4-overrides:
-        use-dns: true
-        use-ntp: true
+      optional: true
 
 # Update system packages
 package_upgrade: true
@@ -52,6 +51,14 @@ system_info:
 
 # Run commands on first boot
 runcmd:
+  - echo "Cloud-init starting..." > /tmp/cloudinit.log
+  - systemctl restart networking || systemctl restart systemd-networkd
+  - echo "Networking restarted" >> /tmp/cloudinit.log
+  - ip addr show >> /tmp/cloudinit.log
+  - sleep 5
+  - dhclient eth0 || true
+  - echo "DHCP attempted" >> /tmp/cloudinit.log
+  - ip addr show >> /tmp/cloudinit.log
   - apt-get update
   - apt-get install -y ca-certificates curl
   - mkdir -p /etc/apt/keyrings
@@ -59,9 +66,6 @@ runcmd:
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io
+  - echo "Cloud-init completed" >> /tmp/cloudinit.log
 
-# Boot completed
 final_message: "The system is up, after $UPTIME seconds"
-power_state:
-  mode: reboot
-  condition: true

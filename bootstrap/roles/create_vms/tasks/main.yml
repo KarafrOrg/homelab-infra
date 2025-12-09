@@ -165,6 +165,14 @@
     mode: '0644'
   loop: "{{ range(1, (vms_per_host_safe | int) + 1) | list }}"
 
+- name: Check if VMs already exist
+  shell: virsh domstate {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }} 2>&1
+  become: yes
+  register: vm_exists
+  changed_when: false
+  failed_when: false
+  loop: "{{ range(1, (vms_per_host_safe | int) + 1) | list }}"
+
 - name: "Creating VM {{ item }}/{{ vms_per_host_safe }}: {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}"
   debug:
     msg: |
@@ -204,6 +212,7 @@
   ignore_errors: yes
   async: 150
   poll: 0
+  when: vm_exists.results[item | int - 1].rc != 0
   loop: "{{ range(1, (vms_per_host_safe | int) + 1) | list }}"
 
 - name: "Poll VM {{ item }}/{{ vms_per_host_safe }} creation"
@@ -214,6 +223,7 @@
   retries: 30
   delay: 5
   ignore_errors: yes
+  when: vm_creation_result.ansible_job_id is defined
   loop: "{{ vm_creation.results }}"
   loop_control:
     loop_var: vm_creation_result
@@ -230,26 +240,60 @@
 
 - name: "Starting VM {{ item }}/{{ vms_per_host_safe }}: {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}"
   debug:
-    msg: "Bringing up VM..."
+    msg: "Checking VM status..."
   loop: "{{ range(1, (vms_per_host_safe | int) + 1) | list }}"
 
-- name: Start VM
+- name: Check VM status before starting
   shell: |
-    virsh start {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }} 2>&1 | tee -a /tmp/vm_creation_{{ inventory_hostname }}.log
+    virsh domstate {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }} 2>&1
   become: yes
-  register: vm_start
+  register: vm_state
   ignore_errors: yes
   loop: "{{ range(1, (vms_per_host_safe | int) + 1) | list }}"
 
-- name: "VM {{ item.item }}/{{ vms_per_host_safe }} startup status"
+- name: Start VM (only if not running)
+  shell: |
+    virsh start {{ vm_base_name }}-{{ inventory_hostname }}-{{ item.item }} 2>&1 | tee -a /tmp/vm_creation_{{ inventory_hostname }}.log
+  become: yes
+  register: vm_start
+  when: item.stdout != "running"
+  loop: "{{ vm_state.results }}"
+  ignore_errors: yes
+
+- name: "VM status after startup check"
   debug:
     msg: |
-      {% if item.rc == 0 %}
-      VM started successfully
+      {% if item.stdout == "running" %}
+      ✓ VM {{ item.item }} already running
+      {% elif item.rc == 0 %}
+      ✓ VM {{ item.item }} started successfully
       {% else %}
-      ✗ VM startup failed (return code: {{ item.rc }})
+      ℹ VM {{ item.item }} status: {{ item.stdout | default('unknown') }}
       {% endif %}
-  loop: "{{ vm_start.results }}"
+  loop: "{{ vm_state.results }}"
+
+- name: Debug VM and network configuration
+  shell: |
+    echo "=== VMs Created ==="
+    virsh list --all | grep k3s-node
+    echo ""
+    echo "=== Available Networks ==="
+    virsh net-list --all
+    echo ""
+    echo "=== Default Network Status ==="
+    virsh net-info default 2>&1 || echo "Network does not exist"
+    echo ""
+    echo "=== First VM Network Config ==="
+    virsh dumpxml {{ vm_base_name }}-{{ inventory_hostname }}-1 2>/dev/null | grep -A 10 "interface" || echo "VM not found"
+    echo ""
+    echo "=== Cloud-init Templates Generated ==="
+    ls -lh /tmp/vm_configs/user-data-* 2>/dev/null || echo "No cloud-init files found"
+  become: yes
+  register: debug_output
+
+- name: Display debug info
+  debug:
+    msg: "{{ debug_output.stdout_lines }}"
 
 - name: "Waiting for VMs to get IP addresses ({{ loop.index }}/{{ vms_per_host_safe }})"
   shell: |
@@ -293,10 +337,3 @@
     groups: k3s_cluster
   loop: "{{ range(1, (vms_per_host_safe | int) + 1) | list | zip(vm_ips | default([])) | list }}"
 
-- name: Wait for SSH connectivity on VMs
-  wait_for:
-    host: "{{ item }}"
-    port: 22
-    delay: 10
-    timeout: 300
-  loop: "{{ vm_ips | default([]) }}"
