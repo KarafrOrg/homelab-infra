@@ -113,7 +113,7 @@
   when:
     - inventory_hostname in groups['k3s_cluster']
     - inventory_hostname != k3s_masters[0]
-    - 'node-.*-1$' | regex_search(inventory_hostname)
+    - inventory_hostname | regex_search('node-.*-1$')
 
 - name: Bootstrap k3s on worker nodes
   block:
