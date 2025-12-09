@@ -89,6 +89,42 @@
     enabled: yes
   become: yes
 
+- name: Check libvirt default network
+  shell: virsh net-info default 2>&1 | grep -q "Active.*yes" && echo "active" || echo "inactive"
+  become: yes
+  register: default_net_check
+  changed_when: false
+  ignore_errors: yes
+
+- name: Create default network if missing
+  shell: |
+    virsh net-define /dev/stdin <<'EOF'
+    <network>
+      <name>default</name>
+      <forward mode='nat'>
+        <nat>
+          <port start='1024' end='65535'/>
+        </nat>
+      </forward>
+      <bridge name='virbr0' stp='on' delay='0'/>
+      <domain name='local'/>
+      <ip address='192.168.122.1' netmask='255.255.255.0'>
+        <dhcp>
+          <range start='192.168.122.2' end='192.168.122.254'/>
+        </dhcp>
+      </ip>
+    </network>
+    EOF
+    virsh net-start default
+  become: yes
+  when: default_net_check.stdout == "inactive"
+  ignore_errors: yes
+
+- name: Ensure default network is autostarted
+  shell: virsh net-autostart default
+  become: yes
+  ignore_errors: yes
+
 - name: Ensure VM storage directory exists
   file:
     path: "{{ vm_storage_path }}"

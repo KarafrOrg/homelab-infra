@@ -2,6 +2,16 @@
 hostname: {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}
 fqdn: {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}.local
 
+# Network configuration - enable DHCP
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: true
+      dhcp4-overrides:
+        use-dns: true
+        use-ntp: true
+
 # Update system packages
 package_upgrade: true
 
@@ -50,4 +60,8 @@ runcmd:
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io
 
+# Boot completed
 final_message: "The system is up, after $UPTIME seconds"
+power_state:
+  mode: reboot
+  condition: true
