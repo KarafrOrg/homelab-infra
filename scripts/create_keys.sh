@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -xeuo pipefail
 
-# Usage:
-#   ./generate_and_upload_keys.sh <remote_host> <ssh_user> <username1> <username2> ...
-#
-# Example:
-#   ./generate_and_upload_keys.sh 192.168.1.10 ubuntu ansible automation
-
-REMOTE_HOST="$1"
+REMOTE_HOSTS="$1"
 REMOTE_SSH_USER="$2"
 shift 2
+
+IFS=',' read -ra HOST_ARRAY <<< "$REMOTE_HOSTS"
 
 KEYS_DIR="./generated_keys"
 mkdir -p "$KEYS_DIR"
@@ -22,39 +18,31 @@ for USERNAME in "$@"; do
     PUBFILE="${KEYFILE}.pub"
 
     echo "🔑 Generating SSH keypair for user: $USERNAME"
-
-    # Generate key locally
     ssh-keygen -t rsa -b 4096 -N "" -f "$KEYFILE" -C "${USERNAME}@local"
 
-    echo "📤 Uploading key and setting up on server..."
+    for REMOTE_HOST in "${HOST_ARRAY[@]}"; do
+        echo "📤 Uploading key and setting up on server $REMOTE_HOST..."
 
-    # Create the user + SSH folder on server
-    ssh "$REMOTE_SSH_USER@$REMOTE_HOST" bash <<EOF
+        scp "$PUBFILE" "$REMOTE_SSH_USER@$REMOTE_HOST:/tmp/${USERNAME}.pub"
+
+        ssh "$REMOTE_SSH_USER@$REMOTE_HOST" bash <<EOF
 set -e
-
-if ! id "$USERNAME" &>/dev/null; then
-    sudo useradd -m -s /bin/bash "$USERNAME"
-fi
-
+sudo useradd -m -s /bin/bash "$USERNAME" 2>/dev/null || true
 sudo mkdir -p /home/$USERNAME/.ssh
-sudo touch /home/$USERNAME/.ssh/authorized_keys
+sudo sh -c "cat /tmp/${USERNAME}.pub > /home/$USERNAME/.ssh/authorized_keys"
 sudo chmod 700 /home/$USERNAME/.ssh
-sudo chown -R $USERNAME:$USERNAME /home/$USERNAME/.ssh
-EOF
-
-    # Upload public key to a temp file
-    scp "$PUBFILE" "$REMOTE_SSH_USER@$REMOTE_HOST:/tmp/${USERNAME}.pub"
-
-    # Append it to authorized_keys
-    ssh "$REMOTE_SSH_USER@$REMOTE_HOST" bash <<EOF
-set -e
-sudo sh -c "cat /tmp/${USERNAME}.pub >> /home/$USERNAME/.ssh/authorized_keys"
 sudo chmod 600 /home/$USERNAME/.ssh/authorized_keys
-sudo chown $USERNAME:$USERNAME /home/$USERNAME/.ssh/authorized_keys
+sudo chown -R $USERNAME:$USERNAME /home/$USERNAME/.ssh
+echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/$USERNAME > /dev/null
+sudo chmod 440 /etc/sudoers.d/$USERNAME
 sudo rm -f /tmp/${USERNAME}.pub
 EOF
 
-    echo "✔ Installed key for user '$USERNAME'"
+        echo "✔ Installed key for user '$USERNAME' on $REMOTE_HOST"
+        ssh -i "$KEYFILE" -o BatchMode=yes -o ConnectTimeout=5 "$USERNAME@$REMOTE_HOST" 'echo "✅ SSH login successful for user: $USERNAME"' \
+            || echo "❌ ERROR: SSH login failed for user: $USERNAME on $REMOTE_HOST"
+    done
+
     echo "   → Private Key: $KEYFILE"
     echo "   → Public Key : $PUBFILE"
     echo

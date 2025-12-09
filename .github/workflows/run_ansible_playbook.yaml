@@ -24,9 +24,15 @@ on:
         description: Additional arguments for the workflow
         required: false
         type: string
+      timeout_minutes:
+        description: Timeout for the job in minutes
+        required: false
+        type: number
+        default: 60
 jobs:
   run-ansible:
     runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout_minutes }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

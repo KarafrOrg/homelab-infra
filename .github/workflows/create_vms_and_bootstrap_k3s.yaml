@@ -1,0 +1,40 @@
+name: Create VMs and Bootstrap k3s Cluster
+
+concurrency:
+  group: create-vms-and-bootstrap-k3s-${{ github.ref }}
+  cancel-in-progress: true
+
+run-name: Create VMs and Bootstrap k3s Cluster
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - bootstrap/playbooks/create_vms_and_bootstrap_k3s.yml
+      - bootstrap/roles/create_vms/**
+      - bootstrap/roles/bootstrap_k3s/**
+  workflow_dispatch:
+    inputs:
+      vms_per_host:
+        description: 'Number of VMs per host'
+        required: false
+        default: '3'
+      k3s_version:
+        description: 'k3s version to install'
+        required: false
+        default: 'latest'
+
+jobs:
+  create-vms-and-bootstrap-k3s:
+    uses: ./.github/workflows/run_ansible_playbook.yaml
+    with:
+      playbook_file: bootstrap/playbooks/create_vms_and_bootstrap_k3s.yml
+      additional_args: >
+        ansible_user_public_key="${{ vars.ANSIBLE_USER_PUBLIC_KEY }}"
+        vms_per_host="${{ inputs.vms_per_host }}"
+        k3s_version="${{ inputs.k3s_version }}"
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SERVER_HOSTS: ${{ secrets.SERVER_HOSTS }}
+      SSH_USER: ${{ secrets.SSH_USER }}

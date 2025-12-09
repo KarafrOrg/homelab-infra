@@ -1,0 +1,26 @@
+# k3s cluster bootstrap defaults
+k3s_version: latest
+k3s_channel: stable
+
+# Cluster configuration
+k3s_token: "{{ lookup('password', '/tmp/k3s_token length=32 chars=ascii_letters,digits') }}"
+k3s_cluster_name: "homelab"
+
+# Server configuration
+k3s_server_args: "--disable=servicelb --disable=local-storage"
+
+# Agent configuration
+k3s_agent_args: ""
+
+# Storage class configuration
+enable_local_storage: false
+enable_ceph_storage: false
+
+# Additional components
+enable_argocd: true
+
+# Registry configuration
+registry_username: ""
+registry_password: ""
+registry_url: ""
+

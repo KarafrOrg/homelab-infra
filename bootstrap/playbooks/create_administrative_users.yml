@@ -1,5 +1,5 @@
 - name: Create administrative users for Ansible
-  hosts: all
+  hosts: dedicated_servers
   become: yes
   vars:
     admin_users:
