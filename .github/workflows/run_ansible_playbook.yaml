@@ -38,5 +38,5 @@ jobs:
           ssh_user: ${{ secrets.SSH_USER }}
       - name: Run Ansible playbook
         run: |
-          ansible-playbook -i inventory.ini '${{ inputs.playbook_file }}' ${{ inputs.additional_args }}
+          ansible-playbook -i inventory.ini '${{ inputs.playbook_file }}' --extra-vars '${{ inputs.additional_args }}'
         shell: bash
