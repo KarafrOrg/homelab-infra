@@ -12,6 +12,8 @@ on:
       - main
     paths:
       - bootstrap/playbooks/create_administrative_users.yml
+      - .github/workflows/create_administrative_users_for_ansible.yaml
+      - .github/workflows/run_ansible_playbook.yaml
   workflow_dispatch:
 
 jobs:
@@ -22,3 +24,6 @@ jobs:
       additional_args: "-var 'ansible_user_public_key=${{ inputs.ANSIBLE_USER_PUBLIC_KEY }}'"
     secrets:
       ANSIBLE_USER_PUBLIC_KEY: ${{ secrets.ANSIBLE_USER_PUBLIC_KEY }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SERVER_HOSTS: ${{ secrets.SERVER_HOSTS }}
+      SSH_USER: ${{ secrets.SSH_USER }}
