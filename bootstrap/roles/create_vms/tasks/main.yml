@@ -7,16 +7,30 @@
   set_fact:
     available_memory: "{{ ((ansible_memtotal_mb | default(8192)) | int * resource_allocation.memory_ratio) | int }}"
     available_cpus: "{{ ((ansible_processor_vcpus | default(4)) | int * resource_allocation.cpu_ratio) | int }}"
+    vms_per_host_safe: "{{ (vms_per_host | default(3)) | int }}"
 
 - name: Ensure minimum resources are available
   set_fact:
     available_memory: "{{ ([available_memory | int, 4096] | max) }}"
     available_cpus: "{{ ([available_cpus | int, 2] | max) }}"
 
+- name: Debug resource calculation
+  debug:
+    msg: |
+      Available Memory: {{ available_memory }} MB
+      Available CPUs: {{ available_cpus }}
+      VMs per host: {{ vms_per_host_safe }}
+
 - name: Calculate per-VM resources
   set_fact:
-    vm_memory_per_instance: "{{ ((available_memory | int / (vms_per_host | int)) | int) | max(1024) }}"
-    vm_cpus_per_instance: "{{ [1, ((available_cpus | int / (vms_per_host | int)) | int)] | max }}"
+    vm_memory_per_instance: "{{ ([((available_memory | int) / ([vms_per_host_safe | int, 1] | max)) | int, 1024] | max) }}"
+    vm_cpus_per_instance: "{{ [1, (((available_cpus | int) / ([vms_per_host_safe | int, 1] | max)) | int)] | max }}"
+
+- name: Display calculated VM resources
+  debug:
+    msg: |
+      Memory per VM: {{ vm_memory_per_instance }} MB
+      CPUs per VM: {{ vm_cpus_per_instance }}
 
 - name: Ensure libvirt is installed
   package:
