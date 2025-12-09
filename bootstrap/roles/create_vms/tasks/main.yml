@@ -3,15 +3,20 @@
     filter: ansible_*
   register: host_facts
 
-- name: Calculate available resources
+- name: Calculate available resources with fallbacks
   set_fact:
-    available_memory: "{{ (ansible_memtotal_mb | int * resource_allocation.memory_ratio) | int }}"
-    available_cpus: "{{ (ansible_processor_vcpus | int * resource_allocation.cpu_ratio) | int }}"
+    available_memory: "{{ ((ansible_memtotal_mb | default(8192)) | int * resource_allocation.memory_ratio) | int }}"
+    available_cpus: "{{ ((ansible_processor_vcpus | default(4)) | int * resource_allocation.cpu_ratio) | int }}"
+
+- name: Ensure minimum resources are available
+  set_fact:
+    available_memory: "{{ ([available_memory | int, 4096] | max) }}"
+    available_cpus: "{{ ([available_cpus | int, 2] | max) }}"
 
 - name: Calculate per-VM resources
   set_fact:
-    vm_memory_per_instance: "{{ (available_memory | int / vms_per_host | int) | int }}"
-    vm_cpus_per_instance: "{{ [1, (available_cpus | int / vms_per_host | int) | int] | max }}"
+    vm_memory_per_instance: "{{ ((available_memory | int / (vms_per_host | int)) | int) | max(1024) }}"
+    vm_cpus_per_instance: "{{ [1, ((available_cpus | int / (vms_per_host | int)) | int)] | max }}"
 
 - name: Ensure libvirt is installed
   package:
