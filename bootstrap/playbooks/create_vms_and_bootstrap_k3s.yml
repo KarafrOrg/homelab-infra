@@ -1,3 +1,4 @@
+---
 - name: Create VMs and Bootstrap k3s Cluster
   hosts: dedicated_servers
   gather_facts: yes

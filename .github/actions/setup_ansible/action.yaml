@@ -58,22 +58,22 @@ runs:
           
           // Generate complete YAML
           const yamlContent = `all:
-          vars:
-            ansible_connection: ssh
-            ansible_port: 22
-            ansible_user: ${sshUser}
-            ansible_ssh_private_key_file: ~/.ssh/id_rsa
-            ansible_become_method: sudo
-            k3s_cluster_name: homelab
-            k3s_version: latest
-            k3s_channel: stable
-            enable_argocd: true
-          children:
-            dedicated_servers:
-              hosts:
-            ${serverEntries}
-            k3s_cluster:
-              hosts: {}
+            vars:
+              ansible_connection: ssh
+              ansible_port: 22
+              ansible_user: ${sshUser}
+              ansible_ssh_private_key_file: ~/.ssh/id_rsa
+              ansible_become_method: sudo
+              k3s_cluster_name: homelab
+              k3s_version: latest
+              k3s_channel: stable
+              enable_argocd: true
+            children:
+              dedicated_servers:
+                hosts:
+          ${serverEntries}
+              k3s_cluster:
+                hosts: {}
           `;
             
             // Write to file
