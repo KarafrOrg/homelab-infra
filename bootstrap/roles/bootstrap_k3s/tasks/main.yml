@@ -156,6 +156,6 @@
 
   when: inventory_hostname == k3s_masters[0]
 
-- name: Deploy optional components
+- name: Deploy additional components
   include_tasks: deploy_addition_components.yml
   when: inventory_hostname == k3s_masters[0]
