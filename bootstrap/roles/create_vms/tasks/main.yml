@@ -124,46 +124,125 @@
 
 - name: Generate cloud-init user data for VMs
   template:
-    src: cloud-init-user-data.j2
+    src: cloud-init-user-data.yaml.j2
     dest: "/tmp/vm_configs/user-data-{{ item }}"
     mode: '0644'
   loop: "{{ range(1, (vms_per_host_safe | int) + 1) | list }}"
 
 - name: Create VMs with virt-install
-  shell: |
-    virt-install \
-      --name {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }} \
-      --vcpus {{ vm_cpus_per_instance }} \
-      --memory {{ vm_memory_per_instance }} \
-      --disk path={{ vm_storage_path }}/{{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}.qcow2,size={{ vm_disk_size | regex_replace('[^0-9]', '') }},format=qcow2 \
-      {{ vm_network_config }} \
-      --os-variant ubuntu22.04 \
-      --cloud-init user-data=/tmp/vm_configs/user-data-{{ item }} \
-      --graphics none \
-      --console pty,target_type=serial \
-      --noreboot
-  become: yes
-  become_user: root
-  register: vm_creation
+  block:
+    - name: "Creating VM {{ item }}/{{ vms_per_host_safe }}: {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}"
+      debug:
+        msg: |
+          Starting VM creation...
+          Name: {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}
+          CPUs: {{ vm_cpus_per_instance }}
+          Memory: {{ vm_memory_per_instance }} MB
+          Disk: {{ vm_disk_size }}
+          Network: {{ vm_network_config }}
+
+    - name: Execute virt-install (background)
+      shell: |
+        set -e
+        echo "=== Creating VM {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }} at $(date) ===" >> /tmp/vm_creation_{{ inventory_hostname }}.log
+        (virt-install \
+          --name {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }} \
+          --vcpus {{ vm_cpus_per_instance }} \
+          --memory {{ vm_memory_per_instance }} \
+          --disk path={{ vm_storage_path }}/{{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}.qcow2,size={{ vm_disk_size | regex_replace('[^0-9]', '') }},format=qcow2 \
+          {{ vm_network_config }} \
+          --os-variant ubuntu22.04 \
+          --cloud-init user-data=/tmp/vm_configs/user-data-{{ item }} \
+          --graphics none \
+          --console pty,target_type=serial \
+          --noreboot 2>&1 | tee -a /tmp/vm_creation_{{ inventory_hostname }}.log
+        echo "=== Completed VM {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }} at $(date) ===" >> /tmp/vm_creation_{{ inventory_hostname }}.log) &
+        
+        # Store the PID for monitoring
+        echo $! > /tmp/virt-install-{{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}.pid
+        
+        # Wait for the process to complete with timeout
+        timeout 120 wait $! || exit 0
+      become: yes
+      become_user: root
+      register: vm_creation
+      ignore_errors: yes
+      async: 150
+      poll: 0
+
+    - name: "Poll VM {{ item }}/{{ vms_per_host_safe }} creation"
+      async_status:
+        jid: "{{ vm_creation.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 30
+      delay: 5
+      ignore_errors: yes
+
+    - name: "VM {{ item }}/{{ vms_per_host_safe }} creation result"
+      debug:
+        msg: |
+          {% if job_result.rc | default(0) == 0 %}
+          ✓ VM created successfully
+          {% else %}
+          ✗ VM creation failed (return code: {{ job_result.rc | default(-1) }})
+          {% endif %}
   loop: "{{ range(1, (vms_per_host_safe | int) + 1) | list }}"
-  ignore_errors: yes
 
 - name: Start VMs
-  shell: |
-    virsh start {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}
-  become: yes
+  block:
+    - name: "Starting VM {{ item }}/{{ vms_per_host_safe }}: {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}"
+      debug:
+        msg: "Bringing up VM..."
+
+    - name: Start VM
+      shell: |
+        virsh start {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }} 2>&1 | tee -a /tmp/vm_creation_{{ inventory_hostname }}.log
+      become: yes
+      register: vm_start
+      ignore_errors: yes
+
+    - name: "VM {{ item }}/{{ vms_per_host_safe }} startup status"
+      debug:
+        msg: |
+          {% if vm_start.rc == 0 %}
+          ✓ VM started successfully
+          {% else %}
+          ✗ VM startup failed (return code: {{ vm_start.rc }})
+          {% endif %}
   loop: "{{ range(1, (vms_per_host_safe | int) + 1) | list }}"
-  ignore_errors: yes
 
 - name: Wait for VMs to get IP addresses
-  shell: |
-    virsh domifaddr {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }} | grep -oP '[\d.]+(\.[\d.]+){3}' | head -1
-  become: yes
-  register: vm_ip_result
-  until: vm_ip_result.stdout != ""
-  retries: 30
-  delay: 5
+  block:
+    - name: "Waiting for VM {{ item }} to get IP address (attempt {{ attempt }})"
+      shell: |
+        RESULT=$(virsh domifaddr {{ vm_base_name }}-{{ inventory_hostname }}-{{ item }} 2>/dev/null | grep -oP '[\d.]+(\.[\d.]+){3}' | head -1)
+        if [ -z "$RESULT" ]; then
+          echo "Waiting for DHCP..." >&2
+          exit 1
+        fi
+        echo "$RESULT"
+      become: yes
+      register: vm_ip_result
+      until: vm_ip_result.stdout != ""
+      retries: 30
+      delay: 5
+      vars:
+        attempt: "{{ (30 - vm_ip_result.attempts) }}/30"
+      ignore_errors: yes
   loop: "{{ range(1, (vms_per_host_safe | int) + 1) | list }}"
+
+- name: Display IP addresses acquired
+  debug:
+    msg: |
+      VM IP Addresses:
+      {% for result in vm_ip_result.results %}
+      {% if result.stdout %}
+      ✓ VM {{ loop.index }}: {{ result.stdout }}
+      {% else %}
+      ✗ VM {{ loop.index }}: No IP assigned
+      {% endif %}
+      {% endfor %}
 
 - name: Collect VM IP addresses
   set_fact:
