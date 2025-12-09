@@ -71,7 +71,7 @@ runs:
           children:
             dedicated_servers:
               hosts:
-              ${serverEntries}
+            ${serverEntries}
             k3s_cluster:
               hosts: {}
           `;
