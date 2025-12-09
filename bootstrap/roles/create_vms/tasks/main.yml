@@ -102,6 +102,26 @@
     state: directory
     mode: '0755'
 
+- name: Check if bridge interface exists
+  shell: ip link show {{ vm_bridge }} 2>&1 | grep -q "{{ vm_bridge }}" && echo "exists" || echo "missing"
+  register: bridge_check
+  changed_when: false
+  ignore_errors: yes
+
+- name: Set network type based on bridge availability
+  set_fact:
+    vm_network_config: "--network bridge={{ vm_bridge }},model=virtio"
+  when: bridge_check.stdout == "exists"
+
+- name: Set fallback network type if bridge missing
+  set_fact:
+    vm_network_config: "--network default,model=virtio"
+  when: bridge_check.stdout != "exists"
+
+- name: Display network configuration
+  debug:
+    msg: "Using network config: {{ vm_network_config }}"
+
 - name: Generate cloud-init user data for VMs
   template:
     src: cloud-init-user-data.j2
@@ -116,8 +136,7 @@
       --vcpus {{ vm_cpus_per_instance }} \
       --memory {{ vm_memory_per_instance }} \
       --disk path={{ vm_storage_path }}/{{ vm_base_name }}-{{ inventory_hostname }}-{{ item }}.qcow2,size={{ vm_disk_size | regex_replace('[^0-9]', '') }},format=qcow2 \
-      --network bridge={{ vm_bridge }},model=virtio \
-      --os-type linux \
+      {{ vm_network_config }} \
       --os-variant ubuntu22.04 \
       --cloud-init user-data=/tmp/vm_configs/user-data-{{ item }} \
       --graphics none \
