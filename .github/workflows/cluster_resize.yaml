@@ -1,10 +1,10 @@
-name: Cluster Resize
+name: Cluster resize
 
 concurrency:
   group: cluster-resize-${{ github.ref }}
   cancel-in-progress: false
 
-run-name: Cluster Resize to ${{ inputs.target_vms_per_host }} VMs per host
+run-name: Cluster resize to ${{ inputs.target_vms_per_host }} VMs per host
 
 on:
   workflow_dispatch:

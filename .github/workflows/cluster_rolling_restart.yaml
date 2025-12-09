@@ -1,10 +1,10 @@
-name: Cluster Rolling Restart
+name: Cluster rolling restart
 
 concurrency:
   group: cluster-rolling-restart-${{ github.ref }}
   cancel-in-progress: false
 
-run-name: Cluster Rolling Restart
+run-name: Cluster rolling restart
 
 on:
   workflow_dispatch:

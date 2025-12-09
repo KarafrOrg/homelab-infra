@@ -1,3 +1,19 @@
+- name: Debug incoming variables
+  debug:
+    msg: |
+      vms_per_host value: {{ vms_per_host | default('UNDEFINED') }}
+      vms_per_host from defaults: 3
+
+- name: Set safe vms_per_host
+  set_fact:
+    vms_per_host_safe: "{{ ([vms_per_host | int, 1] | max) }}"
+
+- name: Validate vms_per_host_safe is not zero
+  assert:
+    that:
+      - vms_per_host_safe | int > 0
+    fail_msg: "vms_per_host_safe must be greater than 0, got {{ vms_per_host_safe }}"
+
 - name: Gather host facts
   setup:
     filter: ansible_*
@@ -7,7 +23,6 @@
   set_fact:
     available_memory: "{{ ((ansible_memtotal_mb | default(8192)) | int * resource_allocation.memory_ratio) | int }}"
     available_cpus: "{{ ((ansible_processor_vcpus | default(4)) | int * resource_allocation.cpu_ratio) | int }}"
-    vms_per_host_safe: "{{ (vms_per_host | default(3)) | int }}"
 
 - name: Ensure minimum resources are available
   set_fact:
