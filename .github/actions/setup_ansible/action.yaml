@@ -37,65 +37,47 @@ runs:
           ssh-keyscan -H "$host" >> ~/.ssh/known_hosts 2>/dev/null || true
         done
 
-    - name: Add hosts to known hosts
-      shell: bash
-      # language=bash
-      run: |
-        for host in ${{ inputs.server_hosts }}; do
-          ssh-keyscan -H "$host" >> ~/.ssh/known_hosts 2>/dev/null || true
-        done
-
     - name: Create dynamic YAML inventory
       uses: actions/github-script@v7
       # language=javascript
       with:
         script: |
           const fs = require('fs');
-          const yaml = require('js-yaml');
           
           // Get inputs
           const serverHosts = '${{ inputs.server_hosts }}'.split(',').map(h => h.trim());
           const sshUser = '${{ inputs.ssh_user }}';
           
-          // Build inventory object
-          const inventory = {
-              all: {
-                  vars: {
-                      ansible_connection: 'ssh',
-                      ansible_port: 22,
-                      ansible_user: sshUser,
-                      ansible_ssh_private_key_file: '~/.ssh/id_rsa',
-                      ansible_become_method: 'sudo',
-                      k3s_cluster_name: 'homelab',
-                      k3s_version: 'latest',
-                      k3s_channel: 'stable',
-                      enable_argocd: true
-                  },
-                  children: {
-                      dedicated_servers: {
-                          hosts: {}
-                      },
-                      k3s_cluster: {
-                          hosts: {}
-                      }
-                  }
-              }
-          };
+          // Generate server entries using template literals
+          const serverEntries = serverHosts
+              .map((host, index) => {
+                  const serverNum = index + 1;
+                  return `        server${serverNum}:\n          ansible_host: ${host}\n          ansible_user: ${sshUser}`;
+              })
+              .join('\n');
           
-          // Add servers to inventory
-          serverHosts.forEach((host, index) => {
-              const serverNum = index + 1;
-              inventory.all.children.dedicated_servers.hosts[`server${serverNum}`] = {
-                  ansible_host: host,
-                  ansible_user: sshUser
-              };
-          });
-          
-          // Generate YAML string
-          const yamlString = yaml.dump(inventory, {lineWidth: -1});
-          
-          // Write to file
-          fs.writeFileSync('inventory.yml', yamlString);
-          
-          console.log('Generated inventory.yml:');
-          console.log(yamlString);
+          // Generate complete YAML
+          const yamlContent = `all:
+          vars:
+            ansible_connection: ssh
+            ansible_port: 22
+            ansible_user: ${sshUser}
+            ansible_ssh_private_key_file: ~/.ssh/id_rsa
+            ansible_become_method: sudo
+            k3s_cluster_name: homelab
+            k3s_version: latest
+            k3s_channel: stable
+            enable_argocd: true
+          children:
+            dedicated_servers:
+              hosts:
+              ${serverEntries}
+            k3s_cluster:
+              hosts: {}
+          `;
+            
+            // Write to file
+            fs.writeFileSync('inventory.yml', yamlContent);
+            
+            console.log('Generated inventory.yml:');
+            console.log(yamlContent);
