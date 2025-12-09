@@ -1,26 +1,15 @@
 ---
-- name: Create VMs and bootstrap k3s cluster
+- name: Create VMs and Bootstrap k3s Cluster
   hosts: dedicated_servers
   gather_facts: yes
   become: no
-  vars:
-    vms_per_host: 3
-
-  pre_tasks:
-    - name: Validate and set vms_per_host variable
-      set_fact:
-        vms_per_host: "{{ vms_per_host | default(3) | int }}"
-      run_once: yes
-
-    - name: Debug vms_per_host before role
-      debug:
-        msg: "vms_per_host is set to: {{ vms_per_host }}"
-      run_once: yes
 
   tasks:
     - name: Create VMs on dedicated servers
-      import_role:
+      include_role:
         name: create_vms
+      vars:
+        vms_per_host: 3
 
     - name: Wait for VM inventory to be populated
       pause:

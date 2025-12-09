@@ -1,12 +1,18 @@
 - name: Debug incoming variables
   debug:
     msg: |
-      vms_per_host value: {{ vms_per_host | default('UNDEFINED') }}
-      vms_per_host from defaults: 3
+      vms_per_host value: {{ vms_per_host | default('USING DEFAULTS') }}
+      Task vars context should have vms_per_host from include_role
 
-- name: Set safe vms_per_host
+- name: Set safe vms_per_host from explicit variable
   set_fact:
-    vms_per_host_safe: "{{ ([vms_per_host | int, 1] | max) }}"
+    vms_per_host_safe: "{{ (vms_per_host | int) }}"
+  when: vms_per_host is defined and vms_per_host != ''
+
+- name: Set safe vms_per_host from defaults (fallback)
+  set_fact:
+    vms_per_host_safe: "3"
+  when: vms_per_host_safe is not defined
 
 - name: Validate vms_per_host_safe is not zero
   assert:
