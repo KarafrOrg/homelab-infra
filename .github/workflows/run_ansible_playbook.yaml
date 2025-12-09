@@ -1,4 +1,4 @@
-name: Create administrative users for Ansible
+name: Run ansible playbook
 
 concurrency:
   group: run-ansible-playbook-${{ github.ref }}
