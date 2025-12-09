@@ -1,0 +1,116 @@
+---
+- name: Validate resize parameters
+  assert:
+    that:
+      - resize_target_vms_per_host | int > 0
+      - resize_target_vms_per_host | int <= 10
+    fail_msg: "Invalid cluster resize parameters"
+
+- name: Get current number of VMs
+  shell: |
+    virsh list --all | grep "k3s-node" | wc -l
+  become: yes
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['dedicated_servers'] }}"
+  register: current_vm_count
+
+- name: Calculate resize plan
+  set_fact:
+    current_vms_per_host: "{{ (current_vm_count.results[0].stdout | int / groups['dedicated_servers'] | length) | int }}"
+    num_hosts: "{{ groups['dedicated_servers'] | length }}"
+
+- name: Display resize plan
+  debug:
+    msg: |
+      Current VMs per host: {{ current_vms_per_host }}
+      Target VMs per host: {{ resize_target_vms_per_host }}
+      Number of hosts: {{ num_hosts }}
+      Total VMs: {{ current_vm_count.results[0].stdout }}
+      Target total VMs: {{ (resize_target_vms_per_host | int) * (num_hosts | int) }}
+
+- name: Resize cluster
+  block:
+    - name: Add new VMs if scaling up
+      block:
+        - name: Get list of VMs to add
+          set_fact:
+            vms_to_add: "{{ resize_target_vms_per_host | int - current_vms_per_host | int }}"
+
+        - name: Create new VMs on each host
+          shell: |
+            # This would call virt-install to create new VMs
+            # Implementation depends on your specific VM creation process
+            echo "Creating {{ vms_to_add }} new VMs on {{ item }}"
+          become: yes
+          loop: "{{ groups['dedicated_servers'] }}"
+          when: vms_to_add | int > 0
+
+        - name: Wait for new VMs to be ready
+          pause:
+            seconds: 60
+          when: vms_to_add | int > 0
+
+        - name: Add new nodes to k3s cluster
+          shell: |
+            kubectl get nodes
+          environment:
+            KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+          become: yes
+          delegate_to: "{{ groups['k3s_cluster'][0] }}"
+
+      when: resize_target_vms_per_host | int > current_vms_per_host | int
+
+    - name: Remove VMs if scaling down
+      block:
+        - name: Get list of VMs to remove
+          set_fact:
+            vms_to_remove: "{{ current_vms_per_host | int - resize_target_vms_per_host | int }}"
+
+        - name: Drain nodes before removal
+          shell: |
+            kubectl drain {{ item }} --ignore-daemonsets --delete-emptydir-data --force
+          environment:
+            KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+          become: yes
+          delegate_to: "{{ groups['k3s_cluster'][0] }}"
+          when: resize_drain_on_remove
+          ignore_errors: yes
+
+        - name: Delete nodes from cluster
+          shell: |
+            kubectl delete node {{ item }}
+          environment:
+            KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+          become: yes
+          delegate_to: "{{ groups['k3s_cluster'][0] }}"
+          ignore_errors: yes
+
+        - name: Shutdown and remove VMs
+          shell: |
+            virsh shutdown {{ item }} || true
+            sleep 5
+            virsh destroy {{ item }} || true
+            virsh undefine {{ item }} || true
+            rm -f /var/lib/libvirt/images/{{ item }}.qcow2
+          become: yes
+          loop: "{{ groups['dedicated_servers'] }}"
+          when: vms_to_remove | int > 0
+
+      when: resize_target_vms_per_host | int < current_vms_per_host | int
+
+- name: Verify cluster after resize
+  shell: |
+    kubectl get nodes -o wide
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  become: yes
+  delegate_to: "{{ groups['k3s_cluster'][0] }}"
+  register: final_status
+
+- name: Display final cluster status
+  debug:
+    msg: |
+      Cluster resize completed!
+      Final status:
+      {{ final_status.stdout }}
+

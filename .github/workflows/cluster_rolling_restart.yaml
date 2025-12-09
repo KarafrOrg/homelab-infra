@@ -1,0 +1,38 @@
+name: Cluster Rolling Restart
+
+concurrency:
+  group: cluster-rolling-restart-${{ github.ref }}
+  cancel-in-progress: false
+
+run-name: Cluster Rolling Restart
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: 'Number of VMs to restart at once'
+        required: false
+        default: '1'
+      delay:
+        description: 'Delay in seconds between batches'
+        required: false
+        default: '30'
+      wait_for_ready:
+        description: 'Wait for nodes to be ready after restart'
+        required: false
+        default: 'true'
+
+jobs:
+  rolling-restart:
+    uses: ./.github/workflows/run_ansible_playbook.yaml
+    with:
+      playbook_file: bootstrap/playbooks/cluster_rolling_restart.yml
+      timeout_minutes: 180
+      additional_args: >
+        rolling_restart_batch_size="${{ inputs.batch_size }}"
+        rolling_restart_delay="${{ inputs.delay }}"
+        rolling_restart_wait_ready="${{ inputs.wait_for_ready }}"
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SERVER_HOSTS: ${{ secrets.SERVER_HOSTS }}
+      SSH_USER: ${{ secrets.SSH_USER }}

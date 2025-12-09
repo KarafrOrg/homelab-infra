@@ -1,0 +1,106 @@
+---
+- name: Validate rolling restart parameters
+  assert:
+    that:
+      - rolling_restart_batch_size | int > 0
+      - rolling_restart_delay | int >= 0
+    fail_msg: "Invalid rolling restart parameters"
+
+- name: Get list of k3s nodes
+  shell: |
+    kubectl get nodes -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | sort
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: k3s_nodes
+  become: yes
+  delegate_to: "{{ groups['k3s_cluster'][0] }}"
+
+- name: Display nodes to restart
+  debug:
+    msg: "Nodes to restart: {{ k3s_nodes.stdout_lines }}"
+
+- name: Get current node statuses
+  shell: |
+    kubectl get nodes -o wide
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  become: yes
+  delegate_to: "{{ groups['k3s_cluster'][0] }}"
+  register: node_status
+
+- name: Display current node status
+  debug:
+    msg: "{{ node_status.stdout }}"
+
+- name: Perform rolling restart of VMs
+  block:
+    - name: Create list of VMs to restart
+      set_fact:
+        vms_to_restart: "{{ k3s_nodes.stdout_lines }}"
+
+    - name: Restart VMs in batches
+      block:
+        - name: Restart batch of VMs
+          shell: |
+            virsh shutdown {{ item }}
+          become: yes
+          delegate_to: "{{ hostvars[groups['dedicated_servers'][0]]['ansible_host'] }}"
+          loop: "{{ vms_to_restart | batch(rolling_restart_batch_size) | first }}"
+          register: vm_shutdown
+          ignore_errors: yes
+
+        - name: Wait for VMs to shutdown
+          pause:
+            seconds: 10
+
+        - name: Start VMs back up
+          shell: |
+            virsh start {{ item }}
+          become: yes
+          delegate_to: "{{ hostvars[groups['dedicated_servers'][0]]['ansible_host'] }}"
+          loop: "{{ vms_to_restart | batch(rolling_restart_batch_size) | first }}"
+          ignore_errors: yes
+
+        - name: Wait for VMs to boot
+          pause:
+            seconds: 30
+
+        - name: Wait for nodes to be ready
+          shell: |
+            kubectl wait --for=condition=Ready node/{{ item }} --timeout={{ wait_for_ready_timeout }}s
+          environment:
+            KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+          become: yes
+          delegate_to: "{{ groups['k3s_cluster'][0] }}"
+          loop: "{{ vms_to_restart | batch(rolling_restart_batch_size) | first }}"
+          when: rolling_restart_wait_ready
+          ignore_errors: yes
+
+        - name: Delay before next batch
+          pause:
+            seconds: "{{ rolling_restart_delay | int }}"
+
+        - name: Prepare for next batch
+          set_fact:
+            vms_to_restart: "{{ vms_to_restart[rolling_restart_batch_size:] }}"
+          when: vms_to_restart | length > rolling_restart_batch_size
+
+      until: vms_to_restart | length == 0
+      retries: "{{ (k3s_nodes.stdout_lines | length / rolling_restart_batch_size) | int + 1 }}"
+
+- name: Verify cluster health after restart
+  shell: |
+    kubectl get nodes -o wide
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  become: yes
+  delegate_to: "{{ groups['k3s_cluster'][0] }}"
+  register: final_node_status
+
+- name: Display final cluster status
+  debug:
+    msg: |
+      Rolling restart completed!
+      Final node status:
+      {{ final_node_status.stdout }}
+

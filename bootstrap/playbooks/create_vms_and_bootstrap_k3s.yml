@@ -3,13 +3,13 @@
   hosts: dedicated_servers
   gather_facts: yes
   become: no
+  vars:
+    vms_per_host: 3
 
   tasks:
     - name: Create VMs on dedicated servers
       import_role:
         name: create_vms
-      vars:
-        vms_per_host: 3
 
     - name: Wait for VM inventory to be populated
       pause:

@@ -1,0 +1,16 @@
+# Cluster maintenance defaults
+# General settings
+maintenance_mode: false
+drain_timeout: 300
+wait_for_ready_timeout: 600
+
+# Rolling restart settings
+rolling_restart_delay: 30  # Delay between VM restarts in seconds
+rolling_restart_batch_size: 1  # Number of VMs to restart at once
+rolling_restart_wait_ready: true  # Wait for node to be ready after restart
+
+# Cluster resize settings
+resize_target_vms_per_host: 3  # Target number of VMs per host
+resize_check_capacity: true  # Check cluster capacity before resizing
+resize_drain_on_remove: true  # Drain nodes before removing them
+

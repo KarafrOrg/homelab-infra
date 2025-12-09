@@ -1,0 +1,49 @@
+---
+- name: Resize k3s Cluster
+  hosts: dedicated_servers
+  gather_facts: yes
+  become: no
+
+  vars:
+    maintenance_operation: resize_cluster
+    resize_target_vms_per_host: 3
+    resize_check_capacity: true
+    resize_drain_on_remove: true
+
+  pre_tasks:
+    - name: Display resize configuration
+      debug:
+        msg: |
+          Cluster Resize Configuration:
+          - Target VMs per host: {{ resize_target_vms_per_host }}
+          - Check capacity: {{ resize_check_capacity }}
+          - Drain nodes before removal: {{ resize_drain_on_remove }}
+      run_once: yes
+
+    - name: Confirm proceeding with resize
+      pause:
+        prompt: "Press ENTER to continue with cluster resize or CTRL+C to cancel"
+      run_once: yes
+
+  roles:
+    - cluster_maintenance
+
+  post_tasks:
+    - name: Final cluster status
+      shell: |
+        echo "Cluster nodes:"
+        kubectl get nodes -o wide
+        echo ""
+        echo "Cluster resources:"
+        kubectl top nodes 2>/dev/null || echo "Metrics not available"
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      become: yes
+      delegate_to: "{{ groups['k3s_cluster'][0] }}"
+      register: final_status
+      run_once: yes
+
+    - name: Display final status
+      debug:
+        msg: "{{ final_status.stdout }}"
+      run_once: yes

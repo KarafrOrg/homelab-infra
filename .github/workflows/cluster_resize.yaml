@@ -1,0 +1,53 @@
+name: Cluster Resize
+
+concurrency:
+  group: cluster-resize-${{ github.ref }}
+  cancel-in-progress: false
+
+run-name: Cluster Resize to ${{ inputs.target_vms_per_host }} VMs per host
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_vms_per_host:
+        description: 'Target number of VMs per host'
+        required: true
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+          - '6'
+      drain_on_remove:
+        description: 'Drain nodes before removing (graceful shutdown)'
+        required: false
+        default: 'true'
+      check_capacity:
+        description: 'Check cluster capacity before resize'
+        required: false
+        default: 'true'
+
+jobs:
+  cluster-resize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Ansible
+        uses: ./.github/actions/setup_ansible
+        with:
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          server_hosts: ${{ secrets.SERVER_HOSTS }}
+          ssh_user: ${{ secrets.SSH_USER }}
+
+      - name: Run cluster resize playbook
+        run: |
+          ansible-playbook -i inventory.yml 'bootstrap/playbooks/cluster_resize.yml' \
+            --extra-vars 'resize_target_vms_per_host="${{ inputs.target_vms_per_host }}" resize_drain_on_remove="${{ inputs.drain_on_remove }}" resize_check_capacity="${{ inputs.check_capacity }}"'
+        shell: bash
+        env:
+          ANSIBLE_CONFIG: ./bootstrap/ansible.cfg
+        timeout-minutes: 180
