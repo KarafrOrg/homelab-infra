@@ -103,24 +103,24 @@
     mode: '0755'
 
 - name: Check if bridge interface exists
-  shell: ip link show {{ vm_bridge }} 2>&1 | grep -q "{{ vm_bridge }}" && echo "exists" || echo "missing"
+  command: "ip link show {{ vm_bridge }}"
   register: bridge_check
   changed_when: false
-  ignore_errors: yes
+  failed_when: false
 
-- name: Set network type based on bridge availability
+- name: Set network config - use bridge if available
   set_fact:
     vm_network_config: "--network bridge={{ vm_bridge }},model=virtio"
-  when: bridge_check.stdout == "exists"
+  when: bridge_check.rc == 0
 
-- name: Set fallback network type if bridge missing
+- name: Set network config - use default NAT if bridge missing
   set_fact:
     vm_network_config: "--network default,model=virtio"
-  when: bridge_check.stdout != "exists"
+  when: bridge_check.rc != 0
 
 - name: Display network configuration
   debug:
-    msg: "Using network config: {{ vm_network_config }}"
+    msg: "Using network config: {{ vm_network_config }} (bridge_check.rc={{ bridge_check.rc }})"
 
 - name: Generate cloud-init user data for VMs
   template:
