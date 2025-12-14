@@ -36,7 +36,7 @@ jobs:
         k3s_version="${{ inputs.k3s_version }}"
       # language=bash
       pre_run_script: |
-        ansible-galaxy collection install git+https://github.com/k3s-io/k3s-ansible.gi
+        ansible-galaxy collection install git+https://github.com/k3s-io/k3s-ansible.git
     secrets:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SERVER_HOSTS: ${{ secrets.SERVER_HOSTS }}
