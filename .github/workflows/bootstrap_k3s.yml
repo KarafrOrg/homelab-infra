@@ -1,4 +1,4 @@
-name: Create VMs and Bootstrap k3s Cluster
+name: Bootstrap k3s Cluster
 
 concurrency:
   group: create-vms-and-bootstrap-k3s-${{ github.ref }}
@@ -7,13 +7,6 @@ concurrency:
 run-name: Create VMs and Bootstrap k3s Cluster
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - bootstrap/playbooks/create_vms_and_bootstrap_k3s.yml
-      - bootstrap/roles/create_vms/**
-      - bootstrap/roles/bootstrap_k3s/**
   workflow_dispatch:
     inputs:
       vms_per_host:
@@ -24,7 +17,13 @@ on:
         description: 'k3s version to install'
         required: false
         default: 'latest'
-
+  push:
+    branches:
+      - main
+    paths:
+      - ansible.cfg
+      - inventory.yml
+      - .github/workflows/bootstrap_k3s.yml
 jobs:
   bootstap-cluster:
     uses: ./.github/workflows/run_ansible_playbook.yaml
