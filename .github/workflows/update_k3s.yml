@@ -8,11 +8,6 @@ run-name: Bootstrap k3s Cluster
 
 on:
   workflow_dispatch:
-    inputs:
-      k3s_version:
-        description: 'k3s version to install'
-        required: false
-        default: 'latest'
 jobs:
   bootstap-cluster:
     uses: ./.github/workflows/run_ansible_playbook.yaml
