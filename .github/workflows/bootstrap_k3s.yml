@@ -31,3 +31,12 @@ jobs:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SERVER_HOSTS: ${{ secrets.SERVER_HOSTS }}
       SSH_USER: ${{ secrets.SSH_USER }}
+
+  install-argo-cd:
+    needs: bootstap-cluster
+    uses: ./.github/workflows/run_ansible_playbook.yaml
+    with:
+      playbook_file: playbooks/install_argocd.yml
+      additional_args: >
+        ansible_user_public_key="${{ vars.ANSIBLE_USER_PUBLIC_KEY }}"
+      # language=bash

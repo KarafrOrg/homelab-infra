@@ -1,0 +1,23 @@
+---
+- name: Install argocd
+  hosts: server
+  become: yes
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Install Helm
+      include_role:
+        name: install_helm
+
+    - name: Install Python Kubernetes library
+      pip:
+        name: kubernetes
+        state: present
+        break_system_packages: true
+      become: yes
+      run_once: true
+
+  tasks:
+    - name: Install ArgoCD
+      import_role:
+        name: install_argocd

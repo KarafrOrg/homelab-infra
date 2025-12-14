@@ -1,0 +1,67 @@
+---
+- name: Create argocd namespace
+  kubernetes.core.k8s:
+    name: argocd
+    api_version: v1
+    kind: Namespace
+    state: present
+    kubeconfig: "{{ install_argocd_kubeconfig_path }}"
+  run_once: yes
+
+- name: Add ArgoCD Helm repository
+  kubernetes.core.helm_repository:
+    name: "{{ install_argocd_helm_repo_name }}"
+    repo_url: "{{ install_argocd_helm_repo_url }}"
+    state: present
+    kubeconfig: "{{ install_argocd_kubeconfig_path }}"
+
+- name: Install ArgoCD via Helm
+  kubernetes.core.helm:
+    name: "{{ install_argocd_helm_release_name }}"
+    chart_ref: "{{ install_argocd_helm_chart_ref }}"
+    release_namespace: "{{ install_argocd_helm_release_namespace }}"
+    create_namespace: yes
+    state: present
+    kubeconfig: "{{ install_argocd_kubeconfig_path }}"
+    values:
+      server:
+        service:
+          type: NodePort
+        insecure: true
+        extraArgs:
+          - --insecure
+
+- name: Wait for ArgoCD to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: "{{ install_argocd_helm_release_namespace }}"
+    name: argocd-server
+    kubeconfig: "{{ install_argocd_kubeconfig_path }}"
+  register: argocd_deployment
+  until: argocd_deployment.resources[0].status.readyReplicas | default(0) > 0
+  retries: 30
+  delay: 10
+
+- name: Create ArgoCD Ingress
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ install_argocd_kubeconfig_path }}"
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: "{{ install_argocd_helm_release_name }}"-ingress
+        namespace: "{{ install_argocd_helm_release_namespace }}"
+      spec:
+        ingressClassName: traefik
+        rules:
+          - host: "{{ install_argocd_ingress_host }}"
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: argocd-server
+                      port:
+                        number: 80

@@ -1,0 +1,2 @@
+---
+helm_install_install_helm_script: curl {{ install_helm_helm_installation_url }} | bash
