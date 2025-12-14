@@ -28,6 +28,10 @@ on:
         required: false
         type: number
         default: 60
+      pre_run_script:
+        description: Script to run before executing the playbook
+        required: false
+        type: string
 jobs:
   run-ansible:
     runs-on: ubuntu-latest
@@ -41,6 +45,13 @@ jobs:
           ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
           server_hosts: ${{ secrets.SERVER_HOSTS }}
           ssh_user: ${{ secrets.SSH_USER }}
+      - name: Run pre-run script
+        if: ${{ inputs.pre_run_script != '' }}
+        run: |
+          echo "${{ inputs.pre_run_script }}" > pre_run.sh
+          chmod +x pre_run.sh
+          ./pre_run.sh
+        shell: bash
       - name: Run Ansible playbook
         run: |
           ansible-playbook -i inventory.yml '${{ inputs.playbook_file }}' --extra-vars '${{ inputs.additional_args }}'

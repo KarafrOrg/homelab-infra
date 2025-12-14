@@ -1,0 +1,15 @@
+k3s_cluster:
+  children:
+    server:
+      hosts:
+        135.125.223.211:
+
+    agent:
+      hosts:
+        135.125.223.213:
+        37.187.159.125:
+  vars:
+    ansible_port: 22
+    ansible_user: ansible_admin
+    k3s_version: v1.31.12+k3s1
+    api_endpoint: "{{ hostvars[groups['server'][0]]['ansible_host'] | default(groups['server'][0]) }}"

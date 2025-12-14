@@ -26,14 +26,17 @@ on:
         default: 'latest'
 
 jobs:
-  create-vms-and-bootstrap-k3s:
+  bootstap-cluster:
     uses: ./.github/workflows/run_ansible_playbook.yaml
     with:
-      playbook_file: bootstrap/playbooks/create_vms_and_bootstrap_k3s.yml
+      playbook_file: k3s.orchestration.site
       additional_args: >
         ansible_user_public_key="${{ vars.ANSIBLE_USER_PUBLIC_KEY }}"
         vms_per_host="${{ inputs.vms_per_host }}"
         k3s_version="${{ inputs.k3s_version }}"
+      # language=bash
+      pre_run_script: |
+        ansible-galaxy collection install git+https://github.com/k3s-io/k3s-ansible.gi
     secrets:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SERVER_HOSTS: ${{ secrets.SERVER_HOSTS }}

@@ -1,0 +1,105 @@
+---
+- name: Bootstrap k3s cluster with ArgoCD
+  hosts: server
+  become: yes
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install pip
+      apt:
+        name: python3-pip
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install Helm
+      shell: |
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      args:
+        executable: /bin/bash
+      become: yes
+      run_once: true
+
+  tasks:
+    - name: Bootstrap k3s cluster
+      import_role:
+        name: bootstrap_k3s
+    - name: Install Python Kubernetes library
+      pip:
+        name: kubernetes
+        state: present
+        break_system_packages: true
+      become: yes
+      run_once: true
+
+    - name: Create argocd namespace
+      kubernetes.core.k8s:
+        name: argocd
+        api_version: v1
+        kind: Namespace
+        state: present
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
+      run_once: yes
+
+    - name: Add ArgoCD Helm repository
+      kubernetes.core.helm_repository:
+        name: argocd
+        repo_url: https://argoproj.github.io/argo-helm
+        state: present
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
+
+    - name: Install ArgoCD via Helm
+      kubernetes.core.helm:
+        name: argocd
+        chart_ref: argocd/argo-cd
+        release_namespace: argocd
+        create_namespace: yes
+        state: present
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
+        values:
+          server:
+            service:
+              type: NodePort
+            insecure: true
+            extraArgs:
+              - --insecure
+
+    - name: Wait for ArgoCD to be ready
+      kubernetes.core.k8s_info:
+        kind: Deployment
+        namespace: argocd
+        name: argocd-server
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
+      register: argocd_deployment
+      until: argocd_deployment.resources[0].status.readyReplicas | default(0) > 0
+      retries: 30
+      delay: 10
+
+    - name: Create ArgoCD Ingress
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: argocd-ingress
+            namespace: argocd
+          spec:
+            ingressClassName: traefik
+            rules:
+              - host: argocd.karafra.net
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: argocd-server
+                          port:
+                            number: 80
