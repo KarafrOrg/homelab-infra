@@ -14,6 +14,7 @@
     repo_url: "{{ install_argocd_helm_repo_url }}"
     state: present
     kubeconfig: "{{ install_argocd_kubeconfig_path }}"
+  run_once: true
 
 - name: Install ArgoCD via Helm
   kubernetes.core.helm:
@@ -30,6 +31,7 @@
         insecure: true
         extraArgs:
           - --insecure
+  run_once: true
 
 - name: Wait for ArgoCD to be ready
   kubernetes.core.k8s_info:
@@ -50,7 +52,7 @@
       apiVersion: networking.k8s.io/v1
       kind: Ingress
       metadata:
-        name: "{{ install_argocd_helm_release_name }}"-ingress
+        name: "{{ install_argocd_helm_release_name }}-ingress"
         namespace: "{{ install_argocd_helm_release_namespace }}"
       spec:
         ingressClassName: traefik
@@ -65,3 +67,14 @@
                       name: argocd-server
                       port:
                         number: 80
+  run_once: true
+
+- name: Create secret for GitHub webhook
+  ansible.builtin.include_role:
+    name: create_secret
+  vars:
+    create_secret_kubeconfig_path: "{{ install_argocd_kubeconfig_path }}"
+    create_secret_secret_name: "{{ install_argocd_github_webhook_secret_name }}"
+    create_secret_secret_namespace: "{{ install_argocd_helm_release_namespace }}"
+    create_secret_secret_data:
+      secret: "{{ install_argocd_github_webhook_secret_value | b64encode }}"

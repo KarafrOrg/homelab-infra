@@ -1,3 +1,4 @@
+---
 install_argocd_kubeconfig_path: /etc/rancher/k3s/k3s.yaml
 install_argocd_ingress_host: argocd.karafra.net
 install_argocd_helm_repo_name: argocd
@@ -5,3 +6,5 @@ install_argocd_helm_repo_url: https://argoproj.github.io/argo-helm
 install_argocd_helm_release_name: argocd
 install_argocd_helm_chart_ref: argocd/argo-cd
 install_argocd_helm_release_namespace: argocd
+install_argocd_github_webhook_secret_name: argocd-github-webhook-secret
+install_argocd_github_webhook_secret_value: supersecretwebhooktoken

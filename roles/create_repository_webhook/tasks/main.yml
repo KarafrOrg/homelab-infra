@@ -1,0 +1,32 @@
+---
+- name: Create secret for GitHub webhook
+  ansible.builtin.include_role:
+    name: create_secret
+  vars:
+    create_secret_kubeconfig_path: "{{ create_repository_webhook_kubeconfig_path }}"
+    create_secret_secret_name: "{{ create_repository_webhook_github_webhook_secret_name }}"
+    create_secret_secret_namespace: "{{ create_repository_webhook_secret_namespace }}"
+    create_secret_secret_data:
+      secret: "{{ create_repository_webhook_github_webhook_secret_value | b64encode }}"
+
+- name: Install PyGithub library
+  pip:
+    name: PyGithub
+    state: present
+  delegate_to: localhost
+  run_once: true
+
+- name: Create GitHub repository webhook
+  community.general.github_webhook:
+    repo: "{{ create_repository_webhook_repository_owner }}/{{ create_repository_webhook_repository_name }}"
+    url: "{{ create_repository_webhook_argocd_server_url }}/api/webhook"
+    content_type: json
+    secret: "{{ create_repository_webhook_github_webhook_secret_value }}"
+    events:
+      - push
+      - pull_request
+    active: true
+    token: "{{ create_repository_webhook_github_token }}"
+    user: "{{ create_repository_webhook_github_user }}"
+  run_once: true
+  delegate_to: localhost

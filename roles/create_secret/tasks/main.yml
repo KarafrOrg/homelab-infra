@@ -1,0 +1,14 @@
+---
+- name: Create Kubernetes Secret
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ create_secret_kubeconfig_path }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ create_secret_secret_name }}"
+        namespace: "{{ create_secret_secret_namespace }}"
+      type: "{{ create_secret_secret_type }}"
+      data: "{{ create_secret_secret_data }}"
+  run_once: true

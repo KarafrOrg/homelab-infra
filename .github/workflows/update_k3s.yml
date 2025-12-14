@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 jobs:
   bootstap-cluster:
-    uses: ./.github/workflows/run_ansible_playbook.yaml
+    uses: run_ansible_playbook.yml
     with:
       playbook_file: k3s.orchestration.upgrade
       additional_args: >

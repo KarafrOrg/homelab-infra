@@ -17,7 +17,7 @@ on:
       - .github/workflows/bootstrap_k3s.yml
 jobs:
   bootstap-cluster:
-    uses: ./.github/workflows/run_ansible_playbook.yaml
+    uses: run_ansible_playbook.yml
     with:
       playbook_file: k3s.orchestration.site
       additional_args: >
@@ -34,7 +34,7 @@ jobs:
 
   install-argo-cd:
     needs: bootstap-cluster
-    uses: ./.github/workflows/run_ansible_playbook.yaml
+    uses: run_ansible_playbook.yml
     with:
       playbook_file: playbooks/install_argocd.yml
       additional_args: >

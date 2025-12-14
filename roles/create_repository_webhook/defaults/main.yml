@@ -1,0 +1,7 @@
+---
+create_repository_webhook_kubeconfig_path: /etc/rancher/k3s/k3s.yaml
+create_repository_webhook_helm_release_namespace: argocd
+create_repository_webhook_github_webhook_secret_name_prefix: argocd-github-webhook-secret
+create_repository_webhook_secret_namespace: argocd
+create_repository_webhook_repository_name: my-repo
+create_repository_webhook_github_user: karafra

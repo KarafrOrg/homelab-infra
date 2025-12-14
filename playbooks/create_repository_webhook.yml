@@ -1,0 +1,10 @@
+---
+- name: Create repository Webhook
+  hosts: server
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Create webhook
+      import_role:
+        name: create_repository_webhook

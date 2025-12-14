@@ -1,0 +1,45 @@
+name: Create repository webhook for homelab-infra
+
+run-name: create-repository-webhook
+
+on:
+  workflow_call:
+    inputs:
+      repository_name:
+        description: 'The name of the GitHub repository to create the webhook for'
+        required: true
+        type: string
+      repository_owner:
+        description: 'The owner of the GitHub repository to create the webhook for'
+        required: true
+        type: string
+jobs:
+  generate-secret:
+    name: Generate webhook secret
+    runs-on: ubuntu-latest
+    outputs:
+      secret_value: ${{ steps.generate_secret.outputs.secret_value }}
+    steps:
+      - name: Generate random secret
+        id: generate_secret
+        run: |
+          SECRET_VALUE=$(openssl rand -base64 32)
+          echo "secret_value=$SECRET_VALUE" >> $GITHUB_OUTPUT
+  run-create-repository-webhook:
+    uses: ./.github/workflows/run_ansible_playbook.yml
+    with:
+      playbook_file: create_repository_webhook.yml
+      additional_args: >
+        ansible_user_public_key="${{ vars.ANSIBLE_USER_PUBLIC_KEY }}"
+        create_repository_webhook_repository_name="${{ inputs.repository_name }}"
+        create_repository_webhook_repository_owner="${{ inputs.repository_owner }}"
+        create_repository_webhook_github_webhook_secret_value="${{ generate-secret.outputs.secret_value }}"
+        create_repository_webhook_github_token=${{ secrets.GITHUB_TOKEN }}
+        create_repository_webhook_argocd_server_url="argocd.karafra.net"
+      # language=bash
+      pre_run_script: |
+        ansible-galaxy collection install community.general
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SERVER_HOSTS: ${{ secrets.SERVER_HOSTS }}
+      SSH_USER: ${{ secrets.SSH_USER }}

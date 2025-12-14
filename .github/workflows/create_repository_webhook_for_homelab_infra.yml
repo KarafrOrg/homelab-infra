@@ -1,0 +1,21 @@
+name: Create repository webhook
+
+run-name: create-repository-webhook
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  create-repository-webhook:
+    uses: ./.github/workflows/create_repository_webhook.yml
+    with:
+      repository_name: 'homelab-infra'
+      repository_owner: 'KarafrOrg'
+      # language=bash
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SERVER_HOSTS: ${{ secrets.SERVER_HOSTS }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
