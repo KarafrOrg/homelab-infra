@@ -1,4 +1,4 @@
-name: Updates K3s version on existing cluster
+name: Update K3s version on existing cluster
 
 concurrency:
   group: bootstrap-k3s-${{ github.ref }}
