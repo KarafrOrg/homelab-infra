@@ -9,10 +9,6 @@ run-name: Create VMs and Bootstrap k3s Cluster
 on:
   workflow_dispatch:
     inputs:
-      vms_per_host:
-        description: 'Number of VMs per host'
-        required: false
-        default: '3'
       k3s_version:
         description: 'k3s version to install'
         required: false
