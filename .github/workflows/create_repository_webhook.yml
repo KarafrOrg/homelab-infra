@@ -14,7 +14,7 @@ on:
         required: true
         type: string
 jobs:
-  generate-secret:
+  generate_secret:
     name: Generate webhook secret
     runs-on: ubuntu-latest
     outputs:
@@ -33,7 +33,7 @@ jobs:
         ansible_user_public_key="${{ vars.ANSIBLE_USER_PUBLIC_KEY }}"
         create_repository_webhook_repository_name="${{ inputs.repository_name }}"
         create_repository_webhook_repository_owner="${{ inputs.repository_owner }}"
-        create_repository_webhook_github_webhook_secret_value="${{ generate-secret.outputs.secret_value }}"
+        create_repository_webhook_github_webhook_secret_value="${{ jobs.generate_secret.outputs.secret_value }}"
         create_repository_webhook_github_token=${{ secrets.GITHUB_TOKEN }}
         create_repository_webhook_argocd_server_url="argocd.karafra.net"
       # language=bash
