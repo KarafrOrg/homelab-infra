@@ -1,10 +1,10 @@
 name: Updates K3s version on existing cluster
 
 concurrency:
-  group: create-vms-and-bootstrap-k3s-${{ github.ref }}
+  group: bootstrap-k3s-${{ github.ref }}
   cancel-in-progress: true
 
-run-name: Create VMs and Bootstrap k3s Cluster
+run-name: Bootstrap k3s Cluster
 
 on:
   workflow_dispatch:
