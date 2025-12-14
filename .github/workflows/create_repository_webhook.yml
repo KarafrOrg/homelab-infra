@@ -1,4 +1,4 @@
-name: Create repository webhook for homelab-infra
+name: Create repository webhook
 
 run-name: create-repository-webhook
 

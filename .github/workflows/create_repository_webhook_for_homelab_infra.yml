@@ -1,6 +1,6 @@
-name: Create repository webhook
+name: Create repository webhook for homelab-infra
 
-run-name: create-repository-webhook
+run-name: create-repository-webhook-homelab-infra
 
 on:
   schedule:

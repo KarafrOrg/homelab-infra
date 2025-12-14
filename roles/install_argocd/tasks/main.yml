@@ -69,12 +69,79 @@
                         number: 80
   run_once: true
 
-- name: Create secret for GitHub webhook
-  ansible.builtin.include_role:
-    name: create_secret
-  vars:
-    create_secret_kubeconfig_path: "{{ install_argocd_kubeconfig_path }}"
-    create_secret_secret_name: "{{ install_argocd_github_webhook_secret_name }}"
-    create_secret_secret_namespace: "{{ install_argocd_helm_release_namespace }}"
-    create_secret_secret_data:
-      secret: "{{ install_argocd_github_webhook_secret_value | b64encode }}"
+- name: Create GitHub App credentials secret
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ install_argocd_kubeconfig_path }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: github-app-credentials
+        namespace: "{{ install_argocd_helm_release_namespace }}"
+      type: Opaque
+      stringData:
+        appID: "{{ install_argocd_github_app_id }}"
+        installationID: "{{ install_argocd_github_app_installation_id }}"
+        privateKey: "{{ install_argocd_github_app_private_key }}"
+  run_once: true
+
+- name: Create GitHub App repository credentials secret
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ install_argocd_kubeconfig_path }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: github-app-repo-creds
+        namespace: "{{ install_argocd_helm_release_namespace }}"
+        labels:
+          argocd.argoproj.io/secret-type: repository
+      type: Opaque
+      stringData:
+        type: git
+        url: "https://github.com/{{ install_argocd_github_org }}"
+        githubAppID: "{{ install_argocd_github_app_id }}"
+        githubAppInstallationID: "{{ install_argocd_github_app_installation_id }}"
+        githubAppPrivateKey: "{{ install_argocd_github_app_private_key }}"
+  run_once: true
+
+- name: Create ApplicationSet for GitHub App org auto-discovery
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ install_argocd_kubeconfig_path }}"
+    definition:
+      apiVersion: argoproj.io/v1alpha1
+      kind: ApplicationSet
+      metadata:
+        name: github-org-discovery
+        namespace: "{{ install_argocd_helm_release_namespace }}"
+      spec:
+        generators:
+          - scmProvider:
+              github:
+                organization: "{{ install_argocd_github_org }}"
+                appSecretName: github-app-repo-creds
+              filters:
+                - labelMatch: argocd
+        template:
+          metadata:
+            name:  "{{ '{{ repository | lower | replace \"_\" \"-\" }}' }}"
+            namespace: "{{ install_argocd_helm_release_namespace }}"
+          spec:
+            project: default
+            source:
+              repoURL: "{{ '{{ url }}' }}"
+              targetRevision: HEAD
+              path: .
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: "{{ '{{ repository | lower | replace \"_\" \"-\" }}' }}"
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+              syncOptions:
+                - CreateNamespace=true
+  run_once: true

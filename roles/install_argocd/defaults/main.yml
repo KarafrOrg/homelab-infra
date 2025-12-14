@@ -8,3 +8,6 @@ install_argocd_helm_chart_ref: argocd/argo-cd
 install_argocd_helm_release_namespace: argocd
 install_argocd_github_webhook_secret_name: argocd-github-webhook-secret
 install_argocd_github_webhook_secret_value: supersecretwebhooktoken
+install_argocd_github_app_id: "2471982"
+install_argocd_github_app_installation_id: "99589900"
+install_argocd_github_org: "KarafrOrg"
