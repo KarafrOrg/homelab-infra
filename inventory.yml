@@ -3,7 +3,6 @@ k3s_cluster:
     server:
       hosts:
         135.125.223.211:
-
     agent:
       hosts:
         135.125.223.213:

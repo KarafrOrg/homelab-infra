@@ -20,8 +20,6 @@ jobs:
       playbook_file: k3s.orchestration.upgrade
       additional_args: >
         ansible_user_public_key="${{ vars.ANSIBLE_USER_PUBLIC_KEY }}"
-        vms_per_host="${{ inputs.vms_per_host }}"
-        k3s_version="${{ inputs.k3s_version }}"
       # language=bash
       pre_run_script: |
         ansible-galaxy collection install git+https://github.com/k3s-io/k3s-ansible.git
