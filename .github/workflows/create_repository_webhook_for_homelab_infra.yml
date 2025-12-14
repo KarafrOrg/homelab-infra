@@ -13,9 +13,9 @@ jobs:
     with:
       repository_name: 'homelab-infra'
       repository_owner: 'KarafrOrg'
+      gh_admin_token: '${{ secrets.GH_ADMIN_TOKEN }}'
       # language=bash
     secrets:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SERVER_HOSTS: ${{ secrets.SERVER_HOSTS }}
       SSH_USER: ${{ secrets.SSH_USER }}
-      GITHUB_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}

@@ -13,6 +13,10 @@ on:
         description: 'The owner of the GitHub repository to create the webhook for'
         required: true
         type: string
+      gh_admin_token:
+        description: 'GitHub admin token with permissions to create webhooks'
+        required: true
+        type: string
 jobs:
   generate_secret:
     name: Generate webhook secret
@@ -34,7 +38,7 @@ jobs:
         create_repository_webhook_repository_name="${{ inputs.repository_name }}"
         create_repository_webhook_repository_owner="${{ inputs.repository_owner }}"
         create_repository_webhook_github_webhook_secret_value="${{ needs.generate_secret.outputs.secret_value }}"
-        create_repository_webhook_github_token=${{ secrets.GITHUB_TOKEN }}
+        create_repository_webhook_github_token=${{ inputs.gh_admin_token }}
         create_repository_webhook_argocd_server_url="argocd.karafra.net"
       # language=bash
       pre_run_script: |
