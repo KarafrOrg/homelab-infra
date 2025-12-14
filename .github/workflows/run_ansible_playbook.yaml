@@ -52,9 +52,15 @@ jobs:
           chmod +x pre_run.sh
           ./pre_run.sh
         shell: bash
+      - name: Display inventory
+        run: |
+          ansible-inventory -i inventory.yml --list
+        shell: bash
+        env:
+          ANSIBLE_CONFIG: ./ansible.cfg
       - name: Run Ansible playbook
         run: |
           ansible-playbook -i inventory.yml '${{ inputs.playbook_file }}' --extra-vars '${{ inputs.additional_args }}'
         shell: bash
         env:
-          ANSIBLE_CONFIG: ./bootstrap/ansible.cfg
+          ANSIBLE_CONFIG: ./ansible.cfg
